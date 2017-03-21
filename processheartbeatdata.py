@@ -126,21 +126,7 @@ class ProcessData():
                 sampled_data[each_row, :])
         return sampled_data
 
-    def _visualize_data(self, tone=None, hist=None, filter=None):
-        """Help Visualize Data"""
 
-        normalized_data = self.normalize_data()
-        plt.plot(normalized_data[0,:])
-        plt.title('PDF 7346.wav No Thrombosis')
-        plt.show()
-
-        """for i in range(1,len(sampled_data)):
-            plt.hist(sampled_data[i,:])
-            plt.pause(0.05)
-            plt.title('data 1 to 4 of 60')
-        while True:
-            plt.pause(0.05)
-        """
     def  filter(self, signal, Fs, cutoff, type, order=9, fig=False):
         if type not in ['lowpass', 'highpass', 'bandpass']:
             print('Please specify: lowpass, highpass or bandpass')
@@ -175,17 +161,43 @@ class ProcessData():
                                                       norm='ortho'))
 
         freq = np.fft.fftfreq(self.params[3])*self.params[2]
-        plt.plot(freq, fft_result['2353.wav'])
-        plt.xlabel('Frequency (Hz)')
-        plt.ylabel('FFT(1787.wav)')
-        plt.title('Normalized DFT (FFT) Resolved Thrombosis')
-        plt.show()
+        for each_file in self.filenames:
+            plt.plot(freq, fft_result[each_file])
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('FFT of %s' % (each_file))
+            plt.title('Normalized DFT (FFT) %s' % (each_file))
+            plt.show()
+
+
+    def _visualize_data(self, tone=None, hist=None, fft=None):
+        """Help Visualize Data"""
+        title = ['1787.wav No Thrombosis', '2353.wav No Thrombosis',
+                 '4095.wav Possible Thrombosis', '7346 Likely Thrombosis',
+                 '7452.wav Has Thrombosis', '7645.wav Thrombosis Resolved',
+                 '7838.wav Has Thrombosis', '7976.wav Thrombosis Resolved']
+
+        if tone:
+            for i in range(len(self.data)):
+                normalized_data = self.normalize_data()
+                plt.plot(normalized_data[i, :])
+                plt.title(title[i])
+                plt.show()
+
+        if hist:
+            for i in range(len(self.data)):
+                normalized_data = self.normalize_data()
+                plt.hist(normalized_data[i, :], 100)
+                plt.title(title[i])
+            plt.show()
+
+        if fft:
+            self._fft()
 
 
 def main():
     """Calls Classes and methods to implement logid"""
     extract_data = ProcessData()
-    extract_data._visualize_data()
+    extract_data._visualize_data(fft=True)
 
 
 
