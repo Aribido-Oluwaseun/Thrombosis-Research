@@ -1,10 +1,8 @@
-import soundfile as sf
 import numpy as np
-import pylab as pl
-import glob, os
+import os
 import matplotlib.pyplot as plt
 from scipy import signal as sg
-import scipy as sp
+from scipy.stats import skew, kurtosis
 import wave
 import struct
 
@@ -108,11 +106,26 @@ class ProcessData():
     def run(self):
         order = 15
         filter_signal = {}
-        cutoff = 100
-        data = self.normalize_data()
+        cutoff = 100 # new Nyquist to recover signal would be 200 Hz
+
+        data = self.normalize_data() # Normalize to zero mean (although heart
+        #  beat data is non-stationary) and Normalized  Variance
+
         filter_result = self.filter_lowpass(order=order, signal=data,
                                             cutoff=cutoff)
-        self._visualize_data(filter_result,tone=True)
+        new_fs = 250 # Hz
+        window_size = 500  # Corresponding to 2 seconds of heart beat using
+        # a new sampling rate of 250 after filtering.
+        window = sg.get_window('boxcar', int(self.params[3]/window_size))
+        f,t,Sxx = self.spectrogram(signal=data, Fs=new_fs,
+                                              window=window)
+        skew_result = self.skew(data)
+        kurtosis_result = self.kurtosis(signal=data)
+        print [kurtosis_result[x] for x in kurtosis_result]
+        plt.plot(f['2353.wav'], Sxx['2353.wav'])
+        plt.title('1787.wav Spectrogram')
+        plt.show()
+        #self._visualize_data(filter_result,hist=True)
         #self._fft(filter_result,True)
 
     def normalize_data(self):
@@ -129,12 +142,31 @@ class ProcessData():
         filter_result = {}
         Wn = float(cutoff)*2/self.params[2]
         b,a = sg.butter(N=order, Wn=Wn, btype='lowpass')
-        for each_file in self.data:
+        for each_file in signal:
             filter_result[each_file] = sg.lfilter(b, a, signal[each_file])
         return filter_result
 
-    def filter_highpass(self, order, signal):
-        pass
+    def spectrogram(self, signal, Fs, window):
+        frequency_sample = {}
+        segment_time = {}
+        spectrogram_result = {}
+        for each_file in signal:
+            frequency_sample[each_file], segment_time[each_file], \
+            spectrogram_result[each_file] = sg.spectrogram(x=signal[each_file],
+                                            fs=Fs, window=window)
+        return frequency_sample, segment_time, spectrogram_result
+
+    def skew(self, signal):
+        skew_result = {}
+        for each_file in signal:
+            skew_result[each_file] = skew(a=signal[each_file])
+        return skew_result
+
+    def kurtosis(self, signal):
+        kurtosis_result = {}
+        for each_file in signal:
+            kurtosis_result[each_file] = kurtosis(a=signal[each_file])
+        return kurtosis_result
 
     def _fft(self, signal, fig=False):
         """fft on data"""
