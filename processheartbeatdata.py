@@ -105,99 +105,81 @@ class ProcessData():
         self.data = self.extract_data.extract_all_data(dir, data_dict=True)
         self.params = self.extract_data.params
 
-    def _resample(self, newrate=None):
-        """Re-sample Data"""
-
-        if newrate is None:
-            newrate = 10000
-        resampled_data = np.empty(shape=(len(self.data_mat), newrate))
-        for i in range(len(self.data_mat)):
-            resampled_data[i,:] = signal.resample(self.data_mat[i,:], newrate)
-        return resampled_data
+    def run(self):
+        order = 15
+        filter_signal = {}
+        cutoff = 100
+        data = self.normalize_data()
+        filter_result = self.filter_lowpass(order=order, signal=data,
+                                            cutoff=cutoff)
+        self._visualize_data(filter_result,tone=True)
+        #self._fft(filter_result,True)
 
     def normalize_data(self):
         """Convert Data to Zero-mean, Unit-Variance"""
+        normal_data = {}
+        for each_file in self.data:
+            normal_data[each_file] = self.data[each_file] - np.mean(
+                self.data[each_file])
+            normal_data[each_file] = self.data[each_file] / np.std(
+                self.data[each_file])
+        return normal_data
 
-        sampled_data = self.data_mat
-        for each_row in range(len(self.data_mat)):
-            sampled_data[each_row, :] = sampled_data[each_row, :] - np.mean(
-                sampled_data[each_row, :])
-            sampled_data[each_row, :] = sampled_data[each_row, :] / np.std(
-                sampled_data[each_row, :])
-        return sampled_data
+    def filter_lowpass(self, order, signal, cutoff):
+        filter_result = {}
+        Wn = float(cutoff)*2/self.params[2]
+        b,a = sg.butter(N=order, Wn=Wn, btype='lowpass')
+        for each_file in self.data:
+            filter_result[each_file] = sg.lfilter(b, a, signal[each_file])
+        return filter_result
 
+    def filter_highpass(self, order, signal):
+        pass
 
-    def  filter(self, signal, Fs, cutoff, type, order=9, fig=False):
-        if type not in ['lowpass', 'highpass', 'bandpass']:
-            print('Please specify: lowpass, highpass or bandpass')
-            raise ProcessDataException('Invalid Filter Specified')
-        Wn = 2 * cutoff / Fs
-        if type in ['lowpass', 'highpass']:
-            [b,a] = sg.butter(N=order, Wn=Wn, btype=type, output='ba')
-
-        if type is 'bandpass' and isinstance(type) is list and len(type) is 2:
-            [b, a] = sg.butter(N=order, Wn=Wn, btype=type, output='ba')
-
-        if fig:
-            w, h = signal.freqs(b, a)
-            plt.plot(w, 20 * np.log10(abs(h)))
-            plt.xscale('log')
-            plt.title('Butterworth filter frequency response')
-            plt.xlabel('Frequency [radians / second]')
-            plt.ylabel('Amplitude [dB]')
-            plt.margins(0, 0.1)
-            plt.grid(which='both', axis='both')
-            plt.axvline(100, color='green')  # cutoff frequency
-            plt.show()
-        return sg.filtfilt(b=b, a=a, x=signal)
-
-    def _fft(self):
+    def _fft(self, signal, fig=False):
         """fft on data"""
 
         fft_result = {}
-        for each_name in self.filenames:
-            fft_result[each_name] = np.abs(np.fft.fft(self.data[each_name],
-                                               self.params[3],
-                                                      norm='ortho'))
+        freq = np.fft.fftfreq(self.params[3]) * self.params[2]
+        for each_name in signal:
+            fft_result[each_name] = np.abs(np.fft.fft(signal[each_name],
+                                               self.params[3]))
+            if fig:
+                plt.plot(freq, fft_result[each_name])
+                plt.xlabel('Frequency (Hz)')
+                plt.ylabel('FFT of %s' % (each_name))
+                plt.title('Normalized DFT (FFT) %s' % (each_name))
+                plt.show()
+        return fft_result
 
-        freq = np.fft.fftfreq(self.params[3])*self.params[2]
-        for each_file in self.filenames:
-            plt.plot(freq, fft_result[each_file])
-            plt.xlabel('Frequency (Hz)')
-            plt.ylabel('FFT of %s' % (each_file))
-            plt.title('Normalized DFT (FFT) %s' % (each_file))
-            plt.show()
-
-
-    def _visualize_data(self, tone=None, hist=None, fft=None):
+    def _visualize_data(self, data, tone=None, hist=None):
         """Help Visualize Data"""
         title = ['1787.wav No Thrombosis', '2353.wav No Thrombosis',
                  '4095.wav Possible Thrombosis', '7346 Likely Thrombosis',
                  '7452.wav Has Thrombosis', '7645.wav Thrombosis Resolved',
                  '7838.wav Has Thrombosis', '7976.wav Thrombosis Resolved']
-
+        count = 0
         if tone:
-            for i in range(len(self.data)):
-                normalized_data = self.normalize_data()
-                plt.plot(normalized_data[i, :])
-                plt.title(title[i])
+            for i in data:
+                plt.plot(data[i])
+                plt.title(title[count])
                 plt.show()
+                count += 1
 
+        count = 0
         if hist:
-            for i in range(len(self.data)):
-                normalized_data = self.normalize_data()
-                plt.hist(normalized_data[i, :], 100)
-                plt.title(title[i])
-            plt.show()
+            for i in data:
 
-        if fft:
-            self._fft()
+                plt.hist(data[i], 100)
+                plt.title(title[count])
+                plt.show()
+                count += 1
 
 
 def main():
-    """Calls Classes and methods to implement logid"""
+    """Calls Classes and methods to implement log id"""
     extract_data = ProcessData()
-    extract_data._visualize_data(fft=True)
+    extract_data.run()
 
 
 
